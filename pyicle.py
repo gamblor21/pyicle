@@ -21,6 +21,10 @@ class Icicle():
         self.splatStartUsec = 0   # Starting time of most recent "splat"
         self.splatDurationUsec = 0# Fade duration of splat
         self.pos = 0              # Position of self on prior frame
+        self.idletimemax = 2200000
+        self.growth_chance = 50 # chance out of 1000 icicle grows 1 pixel
+        self.break_exponent = 1.7 # icicle breaks at len**break_exponent out of 1000
+        self.max_dribble = 16 # auto break if the icicle gets longer
 
     def draw(self):
         t = monotonic_ns() / 1000 #Current time, in microseconds
@@ -60,14 +64,23 @@ class Icicle():
 
             elif self.mode == "MODE_DRIBBLING_2":
                 self.mode = "MODE_DRIPPING" # Dribbling 2nd half to dripping transition
+                # should icicle grow
+                if self.growth_chance > randint(1,1000):
+                    self.dribblePixel += 1
+
                 self.pos = self.dribblePixel
                 self.eventDurationReal = sqrt(self.height * 2.0 / self.g_const) # SCIENCE
                 self.eventDurationUsec = self.eventDurationReal * 1000000
 
             elif self.mode == "MODE_DRIPPING":
                 self.mode = "MODE_IDLE" # Dripping to idle transition
-                self.eventDurationUsec = randint(500000, 1200000) # Idle for 0.5 to 1.2 seconds
+                self.eventDurationUsec = randint(500000, self.idletimemax) # Idle for 0.5 to 1.2 seconds
                 self.eventDurationReal = self.eventDurationUsec / 1000000
+                # breaking icicle
+                if self.dribblePixel**self.break_exponent > randint(1,1000) or self.dribblePixel > self.max_dribble:
+                    self.dribblePixel = randint(1, self.dribblePixel-1)
+                    #print("Icicle ", self.column, " broke at ", self.dribblePixel)
+
                 self.splatStartUsec    = self.eventStartUsec # Splat starts now!
                 self.splatDurationUsec = randint(900000, 1100000)
 
@@ -158,4 +171,6 @@ class Icicle():
     def setpixel(self, pixel, brightness):
         color = tuple([(brightness+0.0) * x for x in self.color])
         #print("Set pixel", pixel, brightness, color)
-        self._grid[self.column, int(pixel)] = color
+        #self._grid[self.column, int(pixel)] = color
+        #print(self.column*20, int(pixel), [self.column*20 + int(pixel)])
+        self._grid[self.column*20 + int(pixel)] = color
